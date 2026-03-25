@@ -1,0 +1,21 @@
+{
+  "video_id": "Hw9f2dARxus",
+  "transcript": "(bright music) (Peck laughing) - This is the number one. I have one helmet. I have one robot. And I have one awesome space ship. The number one is out of this world.",
+  "data": [
+    { "text": "(bright music)", "start": 0.796, "duration": 2.925 },
+    { "text": "(Peck laughing)", "start": 3.721, "duration": 1.169 },
+    { "text": "- This is the number one.", "start": 4.89, "duration": 1.923 },
+    { "text": "I have one helmet.", "start": 7.77, "duration": 1.713 },
+    { "text": "I have one robot.", "start": 11.45, "duration": 3.74 },
+    {
+      "text": "And I have one awesome space ship.",
+      "start": 15.19,
+      "duration": 2.573
+    },
+    {
+      "text": "The number one is out of this world.",
+      "start": 19.505,
+      "duration": 3.0
+    }
+  ]
+}

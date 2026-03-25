@@ -1,0 +1,25 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: deepkin-dubbing-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - backend/.env
+    volumes:
+      # Mount the trained model file without baking it into the image.
+      - ./kinya_flex_tts_base_trained.pt:/app/kinya_flex_tts_base_trained.pt:ro
+      # Persist the SQLite job database and temp audio between restarts.
+      - backend-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  backend-data:

@@ -1,0 +1,118 @@
+:root {
+  font-family: "Segoe UI", "Poppins", sans-serif;
+  color: #12212f;
+  background: radial-gradient(circle at top right, #d8f7ec, #f7f4e8 55%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem 3rem;
+}
+
+.hero h1 {
+  margin-bottom: 0.25rem;
+}
+
+.hero p {
+  margin-top: 0;
+  color: #2d475a;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #cce5d9;
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: 0 12px 30px rgba(18, 33, 47, 0.08);
+  margin-bottom: 1rem;
+}
+
+.layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr 1fr;
+}
+
+.form-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+label {
+  display: grid;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+
+input,
+button {
+  border: 1px solid #8fb7a8;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.95rem;
+}
+
+button {
+  background: #1f7a61;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+video {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid #d3e6de;
+}
+
+.status-line {
+  margin-top: 0.75rem;
+}
+
+.error {
+  color: #b00020;
+}
+
+.segment-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  max-height: 480px;
+  overflow: auto;
+}
+
+.segment {
+  padding: 0.5rem;
+  border-radius: 8px;
+  margin-bottom: 0.4rem;
+}
+
+.segment.active {
+  background: #d6f5e8;
+}
+
+.segment-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.84rem;
+  color: #355161;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}

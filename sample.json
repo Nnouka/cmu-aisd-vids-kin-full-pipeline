@@ -1,0 +1,456 @@
+[
+  {
+    "id": 0,
+    "start_time": "1.82",
+    "end_time": "11.739",
+    "alternatives": [
+      {
+        "content": "Hi, I'm Amy from Noggin Builders, and I'm so excited to partner with our friends from Learning Resources to bring you some ideas for fun STEM exploring you can do at home.",
+        "confidence": "0.998"
+      }
+    ]
+  },
+  {
+    "id": 35,
+    "start_time": "12.72",
+    "end_time": "14.93",
+    "alternatives": [
+      {
+        "content": "Is your preschooler ready to learn to code?",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 44,
+    "start_time": "15.369",
+    "end_time": "16.11",
+    "alternatives": [{ "content": "Sure.", "confidence": "0.998" }]
+  },
+  {
+    "id": 46,
+    "start_time": "16.649",
+    "end_time": "20.87",
+    "alternatives": [
+      {
+        "content": "Of course, the best way for a preschooler to learn anything is through play.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 62,
+    "start_time": "21.329",
+    "end_time": "28.51",
+    "alternatives": [
+      {
+        "content": "There are a lot of great games and activities you can do with your preschooler to help build the skills that will help them become a coder.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 90,
+    "start_time": "29.129",
+    "end_time": "30.049",
+    "alternatives": [{ "content": "Let's play a few.", "confidence": "1.000" }]
+  },
+  {
+    "id": 95,
+    "start_time": "31.559",
+    "end_time": "37.659",
+    "alternatives": [
+      {
+        "content": "One of the most important things to understand about coding is that computers can only do what they're told to do.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 117,
+    "start_time": "38.43",
+    "end_time": "44.09",
+    "alternatives": [
+      {
+        "content": "I like to play a game called Robot Says, similar to Simon Says, to help teach this idea.",
+        "confidence": "0.999"
+      }
+    ]
+  },
+  {
+    "id": 138,
+    "start_time": "44.669",
+    "end_time": "48.689",
+    "alternatives": [
+      {
+        "content": "So, let's start by making sure that your preschooler understands what a robot is.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 154,
+    "start_time": "49.189",
+    "end_time": "54.29",
+    "alternatives": [
+      {
+        "content": "You could say something like, a robot is a machine that helps humans do work.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 171,
+    "start_time": "54.59",
+    "end_time": "57.889",
+    "alternatives": [
+      {
+        "content": "A robot can only do the things that it's told to do.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 184,
+    "start_time": "58.59",
+    "end_time": "62.93",
+    "alternatives": [
+      {
+        "content": "The person that gives instructions to a robot is called a programmer.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 197,
+    "start_time": "63.389",
+    "end_time": "66.989",
+    "alternatives": [
+      {
+        "content": "Let's play a game where I'm the programmer and you're the robot.",
+        "confidence": "0.999"
+      }
+    ]
+  },
+  {
+    "id": 210,
+    "start_time": "68.339",
+    "end_time": "76.36",
+    "alternatives": [
+      {
+        "content": "Then, you're gonna give your preschooler commands, like, touch your head, touch your shoulders, bend over, touch your toes.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 236,
+    "start_time": "76.94",
+    "end_time": "79.12",
+    "alternatives": [
+      { "content": "Just give one direction at a time.", "confidence": "0.999" }
+    ]
+  },
+  {
+    "id": 244,
+    "start_time": "79.459",
+    "end_time": "81.48",
+    "alternatives": [
+      {
+        "content": "That's what we're trying to teach with this game.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 254,
+    "start_time": "81.779",
+    "end_time": "84.54",
+    "alternatives": [
+      {
+        "content": "And unlike Simon says, there's no tricks.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 263,
+    "start_time": "84.86",
+    "end_time": "89.15",
+    "alternatives": [
+      {
+        "content": "We want our robot to do all of the actions that we ask it to.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 279,
+    "start_time": "89.879",
+    "end_time": "94.47",
+    "alternatives": [
+      {
+        "content": "And don't forget, give your preschooler a chance to be the programmer, and you be the robot.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 299,
+    "start_time": "94.639",
+    "end_time": "97.26",
+    "alternatives": [
+      {
+        "content": "They're sure to make you do some really silly things.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 310,
+    "start_time": "99.79",
+    "end_time": "104.459",
+    "alternatives": [
+      {
+        "content": "Sorting is another great activity to build your preschooler's critical thinking skills.",
+        "confidence": "0.986"
+      }
+    ]
+  },
+  {
+    "id": 323,
+    "start_time": "104.83",
+    "end_time": "113.33",
+    "alternatives": [
+      {
+        "content": "This is one of my favorite sorting toys because you can sort by shape or by color, and it has a building component because you stack the pieces.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 353,
+    "start_time": "115.019",
+    "end_time": "117.639",
+    "alternatives": [
+      {
+        "content": "We're gonna play a game called What's missing.",
+        "confidence": "0.875"
+      }
+    ]
+  },
+  {
+    "id": 362,
+    "start_time": "118.139",
+    "end_time": "119.599",
+    "alternatives": [
+      { "content": "Let's start by warming up.", "confidence": "1.000" }
+    ]
+  },
+  {
+    "id": 368,
+    "start_time": "120.099",
+    "end_time": "125.18",
+    "alternatives": [
+      {
+        "content": "Pick two pieces and ask if your child can match the color.",
+        "confidence": "0.993"
+      }
+    ]
+  },
+  {
+    "id": 381,
+    "start_time": "126.8",
+    "end_time": "129.82",
+    "alternatives": [
+      {
+        "content": "Then try with another color or another shape.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 390,
+    "start_time": "130.279",
+    "end_time": "132.619",
+    "alternatives": [
+      {
+        "content": "Can your preschooler find all the stars?",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 398,
+    "start_time": "133.869",
+    "end_time": "142.85",
+    "alternatives": [
+      {
+        "content": "You can add movement to this game by hiding the pieces around your area and send your child on a hunt to sort for all the reds or all the circles.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 430,
+    "start_time": "144.699",
+    "end_time": "147.6",
+    "alternatives": [
+      {
+        "content": "Now that we're warmed up, we're gonna turn this into a puzzle.",
+        "confidence": "0.997"
+      }
+    ]
+  },
+  {
+    "id": 444,
+    "start_time": "148.02",
+    "end_time": "151.6",
+    "alternatives": [
+      {
+        "content": "This puzzle's really gonna build your child's critical thinking skills.",
+        "confidence": "0.993"
+      }
+    ]
+  },
+  {
+    "id": 455,
+    "start_time": "151.94",
+    "end_time": "155.6",
+    "alternatives": [
+      {
+        "content": "So let's start by showing you how to build this puzzle.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 467,
+    "start_time": "158.21",
+    "end_time": "161.63",
+    "alternatives": [
+      {
+        "content": "Let's say the answer to the puzzle is blue triangle.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 478,
+    "start_time": "162.13",
+    "end_time": "175.11",
+    "alternatives": [
+      {
+        "content": "You place 2 or 3 blue items in a row, but not the blue triangle, and then 2 or 3 triangles in this column, but not the blue triangle.",
+        "confidence": "0.999"
+      }
+    ]
+  },
+  {
+    "id": 511,
+    "start_time": "176.25",
+    "end_time": "179.149",
+    "alternatives": [
+      {
+        "content": "See this empty spot where the row and column intersect.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 522,
+    "start_time": "179.729",
+    "end_time": "186.669",
+    "alternatives": [
+      {
+        "content": "It has to match both the row and column, so it must be a blue triangle.",
+        "confidence": "0.999"
+      }
+    ]
+  },
+  {
+    "id": 540,
+    "start_time": "189.289",
+    "end_time": "194.479",
+    "alternatives": [
+      {
+        "content": "The first time you play this game with your preschooler, you might have to explain how to solve the puzzle.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 562,
+    "start_time": "194.809",
+    "end_time": "201.789",
+    "alternatives": [
+      {
+        "content": "For example, you could say, see how these blocks are both blue, and these are both triangles.",
+        "confidence": "0.981"
+      }
+    ]
+  },
+  {
+    "id": 583,
+    "start_time": "202.21",
+    "end_time": "207.229",
+    "alternatives": [
+      {
+        "content": "In this empty spot, we need something that's both blue and a triangle.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 598,
+    "start_time": "208.419",
+    "end_time": "213.32",
+    "alternatives": [
+      {
+        "content": "You can make the puzzle as easy or as challenging as is right for your preschooler.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 615,
+    "start_time": "213.979",
+    "end_time": "217.02",
+    "alternatives": [
+      {
+        "content": "Soon enough, your preschooler will be making puzzles for you.",
+        "confidence": "1.000"
+      }
+    ]
+  },
+  {
+    "id": 627,
+    "start_time": "218.8",
+    "end_time": "221.38",
+    "alternatives": [
+      {
+        "content": "I hope you had a great time with these two games.",
+        "confidence": "0.994"
+      }
+    ]
+  },
+  {
+    "id": 639,
+    "start_time": "222.389",
+    "end_time": "227.94",
+    "alternatives": [
+      {
+        "content": "Next time, we'll talk about patterns and using maze games to learn about algorithms.",
+        "confidence": "0.999"
+      }
+    ]
+  },
+  {
+    "id": 655,
+    "start_time": "228.35",
+    "end_time": "230.759",
+    "alternatives": [
+      { "content": "See you soon and happy exploring.", "confidence": "1.000" }
+    ]
+  }
+]
