@@ -1,12 +1,19 @@
 import copy
 import json
 from pathlib import Path
+from typing import Callable
 
 from app.core.config import settings
 from app.services.aws_gateway import generate_signed_url, upload_bytes_via_signed_url
 from app.services.transcript import TranscriptService
 from app.services.translation import TranslationService
 from app.services.tts import TTSService
+
+
+class PipelineStageError(RuntimeError):
+    def __init__(self, stage: str, message: str):
+        super().__init__(message)
+        self.stage = stage
 
 
 def items_to_sentences(items, end_punctuations=(".", "!", "?")):
@@ -105,14 +112,50 @@ class PipelineService:
         self.translation_service = TranslationService()
         self.tts_service = TTSService()
 
-    def process_job(self, job_id: str, video_bytes: bytes, filename: str, transcript_key: str | None) -> dict:
-        self.transcript_service.upload_video(video_bytes, filename, job_id)
-        transcript_payload = self.transcript_service.wait_for_transcript(job_id, transcript_key=transcript_key)
+    def process_job(
+        self,
+        job_id: str,
+        video_bytes: bytes,
+        filename: str,
+        transcript_key: str | None,
+        on_stage_change: Callable[[str], None] | None = None,
+    ) -> dict:
+        if on_stage_change:
+            on_stage_change("upload_video")
+        try:
+            uploaded_s3_key = self.transcript_service.upload_video(video_bytes, filename, job_id)
+        except Exception as exc:  # noqa: BLE001
+            raise PipelineStageError("upload_video", str(exc)) from exc
+
+        effective_transcript_key = transcript_key or self.transcript_service.transcript_key_from_upload_key(uploaded_s3_key)
+        return self.resume_from_stage(job_id, effective_transcript_key, on_stage_change=on_stage_change)
+
+    def resume_from_stage(
+        self,
+        job_id: str,
+        transcript_key: str | None,
+        resume_stage: str = "wait_transcript",
+        on_stage_change: Callable[[str], None] | None = None,
+    ) -> dict:
+        if resume_stage not in {"wait_transcript", "translate_and_tts", "upload_manifest"}:
+            resume_stage = "wait_transcript"
+
+        if resume_stage == "wait_transcript" and on_stage_change:
+            on_stage_change("wait_transcript")
+        try:
+            transcript_payload = self.transcript_service.wait_for_transcript(job_id, transcript_key=transcript_key)
+        except Exception as exc:  # noqa: BLE001
+            raise PipelineStageError("wait_transcript", str(exc)) from exc
 
         items = _normalize_transcript_to_items(transcript_payload)
         sentence_items = items_to_sentences(items)
 
-        translated_segments = self._translate_and_generate_audio(job_id, sentence_items)
+        if on_stage_change:
+            on_stage_change("translate_and_tts")
+        try:
+            translated_segments = self._translate_and_generate_audio(job_id, sentence_items)
+        except Exception as exc:  # noqa: BLE001
+            raise PipelineStageError("translate_and_tts", str(exc)) from exc
 
         final_result = {
             "results": {
@@ -120,7 +163,13 @@ class PipelineService:
             }
         }
 
-        self._upload_translation_manifest(job_id, final_result)
+        if on_stage_change:
+            on_stage_change("upload_manifest")
+        try:
+            self._upload_translation_manifest(job_id, final_result)
+        except Exception as exc:  # noqa: BLE001
+            raise PipelineStageError("upload_manifest", str(exc)) from exc
+
         return final_result
 
     def translate_text(self, text: str) -> str:

@@ -9,8 +9,25 @@ from app.services.media import guess_content_type
 
 
 class TranscriptService:
+    @staticmethod
+    def build_upload_key(job_id: str, filename: str) -> str:
+        return f"uploads/{job_id}/{Path(filename).name}"
+
+    @staticmethod
+    def transcript_key_from_upload_key(upload_key: str) -> str:
+        normalized = Path(upload_key).with_suffix(".json").as_posix()
+        return f"transcripts/{normalized}"
+
+    @staticmethod
+    def normalize_transcript_key(key: str) -> str:
+        # Backward compatibility: older jobs may have stored upload object keys
+        # (e.g. uploads/<job>/<file>.mp4). Polling should always target transcript objects.
+        if key.startswith("uploads/"):
+            return TranscriptService.transcript_key_from_upload_key(key)
+        return key
+
     def upload_video(self, payload: bytes, filename: str, job_id: str) -> str:
-        s3_key = f"uploads/{job_id}/{Path(filename).name}"
+        s3_key = self.build_upload_key(job_id, filename)
         signed = generate_signed_url(
             s3_key=s3_key,
             bucket=settings.input_bucket,
@@ -25,7 +42,8 @@ class TranscriptService:
         return s3_key
 
     def wait_for_transcript(self, job_id: str, transcript_key: str | None = None) -> dict:
-        key = transcript_key or f"transcripts/{job_id}.json"
+        key = self.normalize_transcript_key(transcript_key or f"transcripts/{job_id}.json")
+        print(f'Waiting for transcript at key: {key}')
         started = time.time()
 
         while (time.time() - started) < settings.transcript_timeout_seconds:

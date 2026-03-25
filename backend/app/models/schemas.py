@@ -30,6 +30,9 @@ class JobStatusResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     error: str | None = None
+    current_stage: str | None = None
+    last_failed_stage: str | None = None
+    transcript_key_in_use: str | None = None
     result: JobResult | None = None
 
 
