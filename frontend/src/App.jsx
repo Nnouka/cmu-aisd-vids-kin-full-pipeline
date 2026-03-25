@@ -520,15 +520,40 @@ function App() {
       });
     }
 
-    segments.forEach((segment) => {
+    // Find the single segment that should be playing now
+    let segmentToPlay = null;
+    for (const segment of segments) {
       const start = parseTime(segment.start_time);
-      const key = segment.audio_file_name || expectedAudioFilename(segment.start_time);
+      const end = parseTime(segment.end_time || start + 2);
+      
+      if (currentTime >= start && currentTime <= end) {
+        segmentToPlay = segment;
+        break;
+      }
+    }
 
-      if (currentTime >= start && !playedSegmentsRef.current.has(key)) {
-        playedSegmentsRef.current.add(key);
-        playSegment(segment);
+    const segmentKey = segmentToPlay 
+      ? (segmentToPlay.audio_file_name || expectedAudioFilename(segmentToPlay.start_time))
+      : null;
+
+    // Stop any audio that's not the current segment
+    const keysToRemove = [];
+    activeAudioRef.current.forEach((audio, key) => {
+      if (key !== segmentKey) {
+        audio.pause();
+        audio.currentTime = 0;
+        keysToRemove.push(key);
       }
     });
+    keysToRemove.forEach((key) => {
+      activeAudioRef.current.delete(key);
+    });
+
+    // Play the current segment if it exists and hasn't been started
+    if (segmentToPlay && !playedSegmentsRef.current.has(segmentKey)) {
+      playedSegmentsRef.current.add(segmentKey);
+      playSegment(segmentToPlay);
+    }
 
     lastVideoTimeRef.current = currentTime;
     setCurrentVideoTime(currentTime);
