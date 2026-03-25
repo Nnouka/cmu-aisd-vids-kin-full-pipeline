@@ -1,4 +1,4 @@
-from functools import lru_cache
+from functools import cached_property
 
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
@@ -10,15 +10,20 @@ class TranslationService:
         self.src_lang = "eng_Latn"
         self.tgt_lang = "kin_Latn"
 
-    @property
-    @lru_cache(maxsize=1)
+    @cached_property
     def tokenizer(self):
         return AutoTokenizer.from_pretrained(settings.translation_model_name)
 
-    @property
-    @lru_cache(maxsize=1)
+    @cached_property
     def model(self):
         return AutoModelForSeq2SeqLM.from_pretrained(settings.translation_model_name)
+
+    def preload(self) -> None:
+        _ = self.tokenizer
+        _ = self.model
+
+    def is_loaded(self) -> bool:
+        return "tokenizer" in self.__dict__ and "model" in self.__dict__
 
     def translate(self, text: str, max_length: int = 400) -> str:
         if not text or not text.strip():

@@ -123,33 +123,35 @@ class PipelineService:
         self._upload_translation_manifest(job_id, final_result)
         return final_result
 
-    def _translate_and_generate_audio(self, job_id: str, segments: list[dict]) -> list[dict]:
+    def translate_text(self, text: str) -> str:
+        return self.translation_service.translate(text)
+
+    def generate_audio_for_translated_segments(
+        self, job_id: str, segments: list[dict], speaker_id: int | None = None
+    ) -> list[dict]:
         translated = copy.deepcopy(segments)
 
         for item in translated:
-            transcript_en = item.get("transcript", "")
-            transcript_rw = self.translation_service.translate(transcript_en)
-            item["transcript_en"] = transcript_en
-            item["transcript_rw"] = transcript_rw
+            transcript_rw = item.get("transcript_rw", "")
 
             start_time = str(item.get("start_time", "0"))
             audio_file_name = _segment_filename_from_start_time(start_time)
             local_audio_path = settings.temp_dir / job_id / audio_file_name
-            self.tts_service.synthesize_to_file(transcript_rw, local_audio_path)
+            self.tts_service.synthesize_to_file(transcript_rw, local_audio_path, speaker_id=speaker_id)
 
             s3_key = f"{settings.public_prefix.strip('/')}/{job_id}/{audio_file_name}"
             signed = generate_signed_url(
                 s3_key=s3_key,
                 bucket=settings.artifact_bucket,
                 action="put_object",
-                content_type="application/octet-stream",
+                content_type="audio/wav",
             )
             upload_url = signed.get("url")
             if not upload_url:
                 raise RuntimeError("No upload URL returned for audio upload")
 
             with open(local_audio_path, "rb") as audio_fp:
-                upload_bytes_via_signed_url(upload_url, audio_fp.read(), "application/octet-stream")
+                upload_bytes_via_signed_url(upload_url, audio_fp.read(), "audio/wav")
 
             item["audio_file_name"] = audio_file_name
             item["audio_file_url"] = f"{settings.public_artifact_store.rstrip('/')}/{s3_key}"
@@ -160,6 +162,16 @@ class PipelineService:
                 pass
 
         return translated
+
+    def _translate_and_generate_audio(self, job_id: str, segments: list[dict]) -> list[dict]:
+        translated = copy.deepcopy(segments)
+
+        for item in translated:
+            transcript_en = item.get("transcript", "")
+            item["transcript_en"] = transcript_en
+            item["transcript_rw"] = self.translate_text(transcript_en)
+
+        return self.generate_audio_for_translated_segments(job_id, translated)
 
     def _upload_translation_manifest(self, job_id: str, result_payload: dict) -> None:
         s3_key = f"{settings.public_prefix.strip('/')}/{job_id}/translation.json"

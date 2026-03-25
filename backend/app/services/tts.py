@@ -1,4 +1,4 @@
-from functools import lru_cache
+from functools import cached_property
 from pathlib import Path
 
 import scipy.io.wavfile
@@ -8,13 +8,18 @@ from app.core.config import settings
 
 
 class TTSService:
-    @property
-    @lru_cache(maxsize=1)
+    @cached_property
     def _model(self):
         from deepkin.models.flex_tts import FlexKinyaTTS
 
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         return FlexKinyaTTS.from_pretrained(device, settings.tts_model_path)
+
+    def preload(self) -> None:
+        _ = self._model
+
+    def is_loaded(self) -> bool:
+        return "_model" in self.__dict__
 
     def synthesize_to_file(self, text: str, output_path: Path, speaker_id: int | None = None) -> Path:
         from deepkin.data.kinya_norm import text_to_sequence
