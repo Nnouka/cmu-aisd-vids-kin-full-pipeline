@@ -41,3 +41,6 @@ Run container:
 For GPU host:
 
 - docker run --rm --gpus all -p 8000:8000 --env-file backend/.env -v ${PWD}/kinya_flex_tts_base_trained.pt:/app/kinya_flex_tts_base_trained.pt deepkin-dubbing-backend
+
+scp -i "aws-kin.pem" ~/.ssh/id_ed25519   ubuntu@ec2-52-0-99-84.compute-1.amazonaws.com:~/.ssh/id_ed25519
+scp -i "aws-kin.pem" ~/.ssh/id_ed25519.pub   ubuntu@ec2-52-0-99-84.compute-1.amazonaws.com:~/.ssh/id_ed25519.pub

@@ -11,6 +11,23 @@ This repo includes:
 conda create -n deepkin python=3.12 -y
 conda activate deepkin
 ```
+or
+
+```sh
+sudo apt update
+sudo apt install -y software-properties-common
+sudo add-apt-repository ppa:deadsnakes/ppa -y
+sudo apt update
+sudo apt install -y python3.14 python3.14-venv python3.14-dev
+
+cd /home/ubuntu/your-project
+rm -rf .venv
+python3.14 -m venv .venv
+source .venv/bin/activate
+python -V
+
+python -m pip install --upgrade pip
+```
 
 ## 2. Install Backend + DeepKIN Dependencies
 
@@ -24,7 +41,13 @@ pip install -e DeepKIN-AgAI
 ## 3. Configure Backend Environment
 
 ```sh
-copy backend\.env.example backend\.env
+cp backend/.env.example backend/.env
+```
+
+Windows PowerShell alternative:
+
+```powershell
+Copy-Item backend\.env.example backend\.env
 ```
 
 Edit `backend/.env` and confirm these values are correct for your environment:
@@ -79,7 +102,13 @@ npm install
 Create frontend env file:
 
 ```sh
-copy .env.example .env
+cp .env.example .env
+```
+
+Windows PowerShell alternative:
+
+```powershell
+Copy-Item .env.example .env
 ```
 
 Set API base in `frontend/.env`:
