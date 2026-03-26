@@ -1,0 +1,200 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AISD Landing Page - CloudFront, S3, and Route53 Infrastructure'
+
+Parameters:
+  DomainName:
+    Type: String
+    Default:  aisd-kin.yinyangr.com
+    Description: The domain name for the landing page
+  
+  HostedZoneId:
+    Type: String
+    Default: Z08346863PT03MQKX9QBY
+    Description: The Route53 Hosted Zone ID for yinyangr.com
+  
+  CertificateArn:
+    Type: String
+    Default: arn:aws:acm:us-east-1:634167836948:certificate/09ca38d8-57ee-481c-8b10-c466c9a37311
+    Description: ARN of the ACM certificate for the domain (must be in us-east-1)
+  
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues:
+      - development
+      - staging
+      - production
+    Description: Environment name
+
+Outputs:
+  CloudFrontDistributionId:
+    Description: CloudFront Distribution ID
+    Value: !Ref CloudFrontDistribution
+    Export:
+      Name: !Sub '${AWS::StackName}-CloudFrontDistributionId'
+  
+  CloudFrontDomainName:
+    Description: CloudFront Domain Name
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub '${AWS::StackName}-CloudFrontDomainName'
+  
+  S3BucketName:
+    Description: S3 Bucket Name
+    Value: !Ref S3Bucket
+    Export:
+      Name: !Sub '${AWS::StackName}-S3BucketName'
+  
+  WebsiteURL:
+    Description: Website URL
+    Value: !Sub 'https://${DomainName}'
+
+Resources:
+  # S3 Bucket for hosting static files
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${DomainName}-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value:  aisd-kin
+
+  # S3 Bucket Policy for CloudFront Access
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CloudFrontAccess
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${S3Bucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
+  # CloudFront Origin Access Control
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${DomainName}-OAC'
+        OriginAccessControlOriginType: s3
+        Description: !Sub 'OAC for ${DomainName}'
+        SigningBehavior: always
+        SigningProtocol: sigv4
+  
+  # CloudFront Distribution
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub 'CloudFront distribution for ${DomainName}'
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        
+        Origins:
+          - DomainName: !GetAtt S3Bucket.RegionalDomainName
+            Id: S3Origin
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+            OriginAccessControlId: !GetAtt OriginAccessControl.Id
+        
+        DefaultCacheBehavior:
+          Compress: true
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+          CachedMethods:
+            - GET
+            - HEAD
+          TargetOriginId: S3Origin
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+        
+        # Cache behavior for index.html (no caching)
+        CacheBehaviors:
+          - PathPattern: /index.html
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            TargetOriginId: S3Origin
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          
+          # Cache behavior for assets
+          - PathPattern: /assets/*
+            Compress: true
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            TargetOriginId: S3Origin
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+        
+        # Custom error responses for SPA routing
+        CustomErrorResponses:
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+        
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        
+        Aliases:
+          - !Ref DomainName
+        
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value:  aisd-kin
+
+  # Route53 DNS Record
+  DNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt CloudFrontDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID
+        EvaluateTargetHealth: false
+      Comment: !Sub 'Route53 record for ${DomainName}'
+
+  # CloudWatch Log Group for CloudFront
+  CloudFrontLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/cloudfront/${DomainName}'
+      RetentionInDays: 30
