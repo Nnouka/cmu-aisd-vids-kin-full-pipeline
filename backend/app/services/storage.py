@@ -32,6 +32,8 @@ def init_db() -> None:
                 job_id TEXT PRIMARY KEY,
                 status TEXT NOT NULL,
                 created_at TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT,
                 updated_at TEXT NOT NULL,
                 error TEXT,
                 input_filename TEXT,
@@ -49,6 +51,10 @@ def init_db() -> None:
             conn.execute("ALTER TABLE jobs ADD COLUMN current_stage TEXT")
         if "last_failed_stage" not in columns:
             conn.execute("ALTER TABLE jobs ADD COLUMN last_failed_stage TEXT")
+        if "started_at" not in columns:
+            conn.execute("ALTER TABLE jobs ADD COLUMN started_at TEXT")
+        if "completed_at" not in columns:
+            conn.execute("ALTER TABLE jobs ADD COLUMN completed_at TEXT")
 
 
 def create_job(job_id: str, input_filename: str, transcript_key: str | None) -> None:
@@ -56,10 +62,21 @@ def create_job(job_id: str, input_filename: str, transcript_key: str | None) -> 
     with _conn() as conn:
         conn.execute(
             """
-            INSERT INTO jobs (job_id, status, created_at, updated_at, input_filename, transcript_key, current_stage, last_failed_stage)
-            VALUES (?, 'queued', ?, ?, ?, ?, 'queued', NULL)
+            INSERT INTO jobs (
+                job_id,
+                status,
+                created_at,
+                started_at,
+                completed_at,
+                updated_at,
+                input_filename,
+                transcript_key,
+                current_stage,
+                last_failed_stage
+            )
+            VALUES (?, 'queued', ?, ?, NULL, ?, ?, ?, 'queued', NULL)
             """,
-            (job_id, now, now, input_filename, transcript_key),
+            (job_id, now, now, now, input_filename, transcript_key),
         )
 
 
@@ -70,6 +87,8 @@ def reset_job(job_id: str, input_filename: str, transcript_key: str | None) -> N
             """
             UPDATE jobs
             SET status = 'queued',
+                started_at = ?,
+                completed_at = NULL,
                 updated_at = ?,
                 error = NULL,
                 input_filename = ?,
@@ -80,7 +99,7 @@ def reset_job(job_id: str, input_filename: str, transcript_key: str | None) -> N
                 last_failed_stage = NULL
             WHERE job_id = ?
             """,
-            (now, input_filename, transcript_key, job_id),
+            (now, now, input_filename, transcript_key, job_id),
         )
 
 
@@ -93,6 +112,7 @@ def prepare_retry(job_id: str) -> None:
             SET status = 'queued',
                 updated_at = ?,
                 error = NULL,
+                completed_at = NULL,
                 current_stage = 'queued'
             WHERE job_id = ?
             """,
@@ -122,6 +142,7 @@ def mark_job_failed(job_id: str, error: str, failed_stage: str | None = None) ->
             SET status = 'failed',
                 updated_at = ?,
                 error = ?,
+                completed_at = NULL,
                 current_stage = 'failed',
                 last_failed_stage = COALESCE(?, last_failed_stage)
             WHERE job_id = ?
@@ -137,10 +158,21 @@ def update_job_status(job_id: str, status: str, error: str | None = None) -> Non
         conn.execute(
             """
             UPDATE jobs
-            SET status = ?, updated_at = ?, error = COALESCE(?, error), current_stage = ?
+            SET status = ?,
+                updated_at = ?,
+                started_at = CASE
+                    WHEN ? = 'processing' THEN COALESCE(started_at, ?)
+                    ELSE started_at
+                END,
+                completed_at = CASE
+                    WHEN ? IN ('queued', 'processing') THEN NULL
+                    ELSE completed_at
+                END,
+                error = COALESCE(?, error),
+                current_stage = ?
             WHERE job_id = ?
             """,
-            (status, now, error, stage, job_id),
+            (status, now, status, now, status, error, stage, job_id),
         )
 
 
@@ -164,13 +196,14 @@ def set_job_result(job_id: str, result: dict) -> None:
             """
             UPDATE jobs
             SET status = 'completed',
+                completed_at = ?,
                 updated_at = ?,
                 result_json = ?,
                 current_stage = 'completed',
                 last_failed_stage = NULL
             WHERE job_id = ?
             """,
-            (now, json.dumps(result, ensure_ascii=False), job_id),
+            (now, now, json.dumps(result, ensure_ascii=False), job_id),
         )
 
 

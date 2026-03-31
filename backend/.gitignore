@@ -62,3 +62,4 @@ htmlcov/
 # Misc
 *.tmp
 .mypy_cache/
+nllb-kin-finetuned-final/

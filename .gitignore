@@ -31,3 +31,5 @@ build/
 **/**/node_modules/
 **/**/dist/
 **/**/build/
+
+backend/nllb-kin-finetuned-final/

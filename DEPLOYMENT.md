@@ -99,6 +99,9 @@
    docker-compose up -d
    # Check logs: docker-compose logs -f backend
    ```
+   Notes:
+   - SQLite is persisted via Docker volume `deepkin-backend-data` mounted at `/app/data`.
+   - Avoid `docker compose down -v` or `docker-compose down -v` unless you intentionally want to delete the DB.
 
 7. **Verify Backend is Running**
    ```bash
@@ -113,6 +116,14 @@
    ```
    Add:
    ```nginx
+   map $http_origin $cors_origin {
+      default "";
+      "http://localhost:3000" $http_origin;
+      "http://localhost" $http_origin;
+      "http://localhost:5173" $http_origin;
+      "https://aisd-kin.yinyangr.com" $http_origin;
+      "https://www.aisd-kin.yinyangr.com" $http_origin;
+   }
    server {
        listen 80;
        server_name aisd-kin-api.yinyangr.com;
@@ -120,7 +131,7 @@
        client_max_body_size 15M;
 
        location /api/ {
-         f ($request_method = OPTIONS) {
+         if ($request_method = OPTIONS) {
             add_header Access-Control-Allow-Origin "http://localhost:5173" always;
             add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS" always;
             add_header Access-Control-Allow-Headers "Authorization, Content-Type, Accept, Origin, X-Requested-With" always;
@@ -137,7 +148,7 @@
         proxy_read_timeout 600s;
         proxy_send_timeout 600s;
         proxy_connect_timeout 60s;
-        
+
            proxy_set_header Host $host;
            proxy_set_header X-Real-IP $remote_addr;
            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -148,7 +159,35 @@
            proxy_pass http://127.0.0.1:8700/swagger;
            proxy_set_header Host $host;
            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
        }
+
+         location = /openapi.json {
+            proxy_pass http://127.0.0.1:8700/openapi.json;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+         }
+
+         # Swagger UI static assets served by FastAPI (JS/CSS)
+         location ~ ^/(swagger-ui\.css|swagger-ui-bundle\.js|swagger-ui-standalone-preset\.js)$ {
+            proxy_pass http://127.0.0.1:8700;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+         }
+
+         # OAuth2 redirect endpoint used by Swagger UI
+         location = /docs/oauth2-redirect {
+            proxy_pass http://127.0.0.1:8700/docs/oauth2-redirect;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+         }
    }
    ```
    Then:

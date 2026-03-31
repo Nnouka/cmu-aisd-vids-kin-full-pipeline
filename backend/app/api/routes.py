@@ -36,6 +36,18 @@ def _inspect_duration_sync(payload: bytes, filename: str) -> float:
         return detect_video_duration_seconds(tmp.name)
 
 
+def _parse_optional_iso_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    return datetime.fromisoformat(value)
+
+
+def _compute_duration_seconds(started_at: datetime | None, completed_at: datetime | None) -> float | None:
+    if started_at is None or completed_at is None:
+        return None
+    return max((completed_at - started_at).total_seconds(), 0.0)
+
+
 @router.get("/health")
 def health() -> dict:
     return {"status": "ok"}
@@ -107,11 +119,17 @@ def get_processing_job(job_id: str):
     if row is None:
         raise HTTPException(status_code=404, detail=JOB_NOT_FOUND_DETAIL)
 
+    started_at = _parse_optional_iso_datetime(row.get("started_at"))
+    completed_at = _parse_optional_iso_datetime(row.get("completed_at"))
+
     return JobStatusResponse(
         job_id=row["job_id"],
         status=row["status"],
         created_at=datetime.fromisoformat(row["created_at"]),
+        started_at=started_at,
+        completed_at=completed_at,
         updated_at=datetime.fromisoformat(row["updated_at"]),
+        duration_seconds=_compute_duration_seconds(started_at, completed_at),
         error=row.get("error"),
         current_stage=row.get("current_stage"),
         last_failed_stage=row.get("last_failed_stage"),
@@ -123,20 +141,27 @@ def get_processing_job(job_id: str):
 @router.get("/jobs", response_model=list[JobStatusResponse])
 def get_jobs(status: Annotated[str | None, Query()] = None):
     rows = list_jobs(status=status)
-    return [
-        JobStatusResponse(
-            job_id=row["job_id"],
-            status=row["status"],
-            created_at=datetime.fromisoformat(row["created_at"]),
-            updated_at=datetime.fromisoformat(row["updated_at"]),
-            error=row.get("error"),
-            current_stage=row.get("current_stage"),
-            last_failed_stage=row.get("last_failed_stage"),
-            transcript_key_in_use=row.get("transcript_key"),
-            result=row.get("result_json"),
+    response: list[JobStatusResponse] = []
+    for row in rows:
+        started_at = _parse_optional_iso_datetime(row.get("started_at"))
+        completed_at = _parse_optional_iso_datetime(row.get("completed_at"))
+        response.append(
+            JobStatusResponse(
+                job_id=row["job_id"],
+                status=row["status"],
+                created_at=datetime.fromisoformat(row["created_at"]),
+                started_at=started_at,
+                completed_at=completed_at,
+                updated_at=datetime.fromisoformat(row["updated_at"]),
+                duration_seconds=_compute_duration_seconds(started_at, completed_at),
+                error=row.get("error"),
+                current_stage=row.get("current_stage"),
+                last_failed_stage=row.get("last_failed_stage"),
+                transcript_key_in_use=row.get("transcript_key"),
+                result=row.get("result_json"),
+            )
         )
-        for row in rows
-    ]
+    return response
 
 
 @router.post(

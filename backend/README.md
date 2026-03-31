@@ -19,6 +19,11 @@ FastAPI async backend for pipeline execution:
 
 Job states: queued, processing, completed, failed.
 
+Job timing fields in status responses:
+- `started_at`: UTC timestamp for when the pipeline run starts processing
+- `completed_at`: UTC timestamp when the run reaches completed state
+- `duration_seconds`: computed as `completed_at - started_at` when both are available
+
 ## Local run
 
 1. Copy .env.example to .env and edit values.

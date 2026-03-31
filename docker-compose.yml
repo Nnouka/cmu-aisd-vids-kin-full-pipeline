@@ -29,3 +29,4 @@ services:
 
 volumes:
   backend-data:
+    name: deepkin-backend-data

@@ -1,110 +1,31 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CheckCircleTwoTone } from "@ant-design/icons";
+import { Col, ConfigProvider, Layout, Row, theme } from "antd";
+
+import { AppHeader } from "./components/AppHeader";
+import { HeroCard } from "./components/HeroCard";
+import { JobCreateCard } from "./components/JobCreateCard";
+import { SegmentsCard } from "./components/SegmentsCard";
+import { SidebarNav } from "./components/SidebarNav";
+import { StageProgressCard } from "./components/StageProgressCard";
+import { VideoPreviewCard } from "./components/VideoPreviewCard";
 import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  Col,
-  ConfigProvider,
-  Layout,
-  List,
-  Progress,
-  Row,
-  Statistic,
-  Tag,
-  Timeline,
-  Typography,
-  Upload,
-} from "antd";
+  JOB_STAGES,
+  MAX_DURATION_SECONDS,
+  MAX_FILE_SIZE,
+  POLL_INTERVAL_MS,
+  STATUS_COLOR,
+} from "./constants";
+import { useSegmentPlayback } from "./hooks/useSegmentPlayback";
 import {
-  CheckCircleTwoTone,
-  ClockCircleOutlined,
-  DashboardOutlined,
-  FileTextOutlined,
-  PauseCircleOutlined,
-  PlayCircleOutlined,
-  ReloadOutlined,
-  SoundOutlined,
-  TranslationOutlined,
-  UploadOutlined,
-  VideoCameraOutlined,
-} from "@ant-design/icons";
-import { theme } from "antd";
+  computeDurationFromTimestamps,
+  deriveJobIdFromFilename,
+  getVideoDuration,
+  parseTime,
+} from "./lib/formatters";
+import { continueJob, createJob, fetchJob, restartJob } from "./lib/jobsApi";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const MAX_DURATION_SECONDS = 180;
-const POLL_INTERVAL_MS = Number(import.meta.env.VITE_POLL_INTERVAL_MS || 60000);
-const JOB_STAGES = [
-  "queued",
-  "upload_video",
-  "wait_transcript",
-  "translate_and_tts",
-  "upload_manifest",
-  "completed",
-];
-
-const { Header, Sider, Content } = Layout;
-const { Title, Paragraph, Text } = Typography;
-
-const STATUS_COLOR = {
-  idle: "default",
-  validating: "processing",
-  queued: "processing",
-  processing: "processing",
-  completed: "success",
-  failed: "error",
-};
-
-function formatStageLabel(stage) {
-  return stage.replaceAll("_", " ");
-}
-
-function parseTime(value) {
-  const parsed = Number.parseFloat(String(value ?? "0"));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-async function getVideoDuration(file) {
-  const objectUrl = URL.createObjectURL(file);
-
-  try {
-    const duration = await new Promise((resolve, reject) => {
-      const probe = document.createElement("video");
-      probe.preload = "metadata";
-      probe.src = objectUrl;
-      probe.onloadedmetadata = () => resolve(probe.duration || 0);
-      probe.onerror = () => reject(new Error("Unable to read video metadata."));
-    });
-    return duration;
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
-}
-
-function expectedAudioFilename(startTime) {
-  return `${String(startTime).replaceAll(".", "_")}.wav`;
-}
-
-function deriveJobIdFromFilename(filename) {
-  const cleaned = (filename || "").trim();
-  if (!cleaned) {
-    return "";
-  }
-
-  const dot = cleaned.lastIndexOf(".");
-  const stem = dot > 0 ? cleaned.slice(0, dot) : cleaned;
-  return stem.trim();
-}
-
-function formatClock(totalSeconds) {
-  const seconds = Math.max(0, Math.floor(totalSeconds || 0));
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-}
+const { Content } = Layout;
 
 function App() {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -117,37 +38,58 @@ function App() {
   const [isRestarting, setIsRestarting] = useState(false);
   const [isCheckingExistingJob, setIsCheckingExistingJob] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
-  const [currentVideoTime, setCurrentVideoTime] = useState(0);
-  const [videoDuration, setVideoDuration] = useState(0);
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [audioVolume, setAudioVolume] = useState(0.9);
   const [ccEnabled, setCcEnabled] = useState(false);
   const [currentStage, setCurrentStage] = useState("idle");
   const [lastFailedStage, setLastFailedStage] = useState("");
+  const [jobStartedAt, setJobStartedAt] = useState("");
+  const [jobCompletedAt, setJobCompletedAt] = useState("");
+  const [durationNowMs, setDurationNowMs] = useState(() => Date.now());
 
-  const videoRef = useRef(null);
   const pollHandleRef = useRef(null);
-  const activeAudioRef = useRef(new Map());
-  const playedSegmentsRef = useRef(new Set());
-  const lastVideoTimeRef = useRef(0);
 
   const segments = useMemo(() => {
     const raw = result?.results?.translated_segments || [];
     return [...raw].sort((a, b) => parseTime(a.start_time) - parseTime(b.start_time));
   }, [result]);
 
+  const {
+    videoRef,
+    currentVideoTime,
+    videoDuration,
+    isVideoPlaying,
+    playbackDebug,
+    activeIndex,
+    activeCaptionText,
+    resetPlaybackState,
+    handleSegmentClick,
+    handleVideoPlay,
+    handleVideoPause,
+    handleVideoSeek,
+    handleVideoLoadedMetadata,
+    handleVideoTimeUpdate,
+    handleSeekSliderChange,
+    handlePlayPauseClick,
+  } = useSegmentPlayback({
+    segments,
+    audioVolume,
+    ccEnabled,
+    setError,
+  });
+
   async function fetchJobStatus(nextJobId) {
-    const response = await fetch(`${API_BASE_URL}/jobs/${nextJobId}`);
+    const { response, payload } = await fetchJob(nextJobId);
     if (!response.ok) {
       setStatus("failed");
       setError("Failed to poll job status.");
       return;
     }
 
-    const payload = await response.json();
     setStatus(payload.status);
     setCurrentStage(payload.current_stage || payload.status || "unknown");
     setLastFailedStage(payload.last_failed_stage || "");
+    setJobStartedAt(payload.started_at || "");
+    setJobCompletedAt(payload.completed_at || "");
     if (payload.status === "completed") {
       setResult(payload.result);
     }
@@ -162,6 +104,8 @@ function App() {
       setStatus("idle");
       setCurrentStage("idle");
       setLastFailedStage("");
+      setJobStartedAt("");
+      setJobCompletedAt("");
       setResult(null);
       return undefined;
     }
@@ -189,7 +133,7 @@ function App() {
       setJobId(inferredJobId);
 
       try {
-        const response = await fetch(`${API_BASE_URL}/jobs/${inferredJobId}`);
+        const { response, payload } = await fetchJob(inferredJobId);
         if (cancelled) {
           return;
         }
@@ -198,6 +142,8 @@ function App() {
           setStatus("idle");
           setCurrentStage("idle");
           setLastFailedStage("");
+          setJobStartedAt("");
+          setJobCompletedAt("");
           setResult(null);
           return;
         }
@@ -208,7 +154,6 @@ function App() {
           return;
         }
 
-        const payload = await response.json();
         if (cancelled) {
           return;
         }
@@ -216,6 +161,8 @@ function App() {
         setStatus(payload.status || "idle");
         setCurrentStage(payload.current_stage || payload.status || "unknown");
         setLastFailedStage(payload.last_failed_stage || "");
+        setJobStartedAt(payload.started_at || "");
+        setJobCompletedAt(payload.completed_at || "");
         setResult(payload.status === "completed" ? payload.result : null);
         if (payload.status === "failed") {
           setError(payload.error || "Job failed.");
@@ -238,12 +185,6 @@ function App() {
       cancelled = true;
     };
   }, [selectedFile]);
-
-  useEffect(() => {
-    activeAudioRef.current.forEach((audio) => {
-      audio.volume = audioVolume;
-    });
-  }, [audioVolume]);
 
   useEffect(() => {
     if (!jobId || !(status === "queued" || status === "processing")) {
@@ -271,21 +212,20 @@ function App() {
     }
   }, [status]);
 
-  function stopAllAudio() {
-    activeAudioRef.current.forEach((audio) => {
-      audio.pause();
-      audio.currentTime = 0;
-    });
-    activeAudioRef.current.clear();
-  }
+  useEffect(() => {
+    if (!jobStartedAt || jobCompletedAt) {
+      return undefined;
+    }
 
-  function resetPlaybackState() {
-    stopAllAudio();
-    playedSegmentsRef.current = new Set();
-    lastVideoTimeRef.current = 0;
-    setCurrentVideoTime(0);
-    setIsVideoPlaying(false);
-  }
+    setDurationNowMs(Date.now());
+    const handle = globalThis.setInterval(() => {
+      setDurationNowMs(Date.now());
+    }, 1000);
+
+    return () => {
+      globalThis.clearInterval(handle);
+    };
+  }, [jobStartedAt, jobCompletedAt]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -300,6 +240,8 @@ function App() {
     setStatus("validating");
     setCurrentStage("validating");
     setLastFailedStage("");
+    setJobStartedAt("");
+    setJobCompletedAt("");
 
     if (selectedFile.size > MAX_FILE_SIZE) {
       setStatus("idle");
@@ -325,11 +267,7 @@ function App() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/jobs`, {
-        method: "POST",
-        body: formData,
-      });
-      const payload = await response.json();
+      const { response, payload } = await createJob(formData);
 
       if (!response.ok) {
         setStatus("failed");
@@ -350,95 +288,6 @@ function App() {
     }
   }
 
-  async function playSegment(segment) {
-    const start = parseTime(segment.start_time);
-    const now = lastVideoTimeRef.current;
-    const offset = Math.max(0, now - start);
-
-    const key = segment.audio_file_name || expectedAudioFilename(segment.start_time);
-    if (activeAudioRef.current.has(key)) {
-      return;
-    }
-
-    const audio = new Audio(segment.audio_file_url);
-    audio.volume = audioVolume;
-    audio.currentTime = offset;
-    activeAudioRef.current.set(key, audio);
-
-    audio.onended = () => {
-      activeAudioRef.current.delete(key);
-    };
-
-    try {
-      await audio.play();
-    } catch (playError) {
-      console.warn("Unable to play segment audio", playError);
-      activeAudioRef.current.delete(key);
-    }
-  }
-
-  function reconcilePlaybackForSeek(nextTime) {
-    stopAllAudio();
-
-    const updatedPlayed = new Set();
-    segments.forEach((segment) => {
-      const start = parseTime(segment.start_time);
-      const end = parseTime(segment.end_time || start + 2);
-      const key = segment.audio_file_name || expectedAudioFilename(segment.start_time);
-      if (end < nextTime) {
-        updatedPlayed.add(key);
-      }
-    });
-
-    playedSegmentsRef.current = updatedPlayed;
-    lastVideoTimeRef.current = nextTime;
-    setCurrentVideoTime(nextTime);
-
-    const video = videoRef.current;
-    if (!video || video.paused) {
-      return;
-    }
-
-    const active = segments.find((segment) => {
-      const start = parseTime(segment.start_time);
-      const end = parseTime(segment.end_time || start + 2);
-      return nextTime >= start && nextTime <= end;
-    });
-
-    if (active) {
-      const key = active.audio_file_name || expectedAudioFilename(active.start_time);
-      playedSegmentsRef.current.add(key);
-      playSegment(active);
-    }
-  }
-
-  function seekVideoToTime(nextTime) {
-    const video = videoRef.current;
-    if (!video) {
-      return;
-    }
-
-    const clamped = Math.max(0, Math.min(nextTime, videoDuration || nextTime));
-    video.currentTime = clamped;
-    reconcilePlaybackForSeek(clamped);
-  }
-
-  async function handleSegmentClick(startTime) {
-    const video = videoRef.current;
-    if (!video) {
-      return;
-    }
-
-    stopAllAudio();
-    seekVideoToTime(startTime);
-
-    try {
-      await video.play();
-    } catch (playError) {
-      setError(playError.message || "Unable to continue playback from selected segment.");
-    }
-  }
-
   async function handleContinueJob() {
     if (!jobId) {
       setError("No job to continue yet.");
@@ -448,10 +297,7 @@ function App() {
     setIsContinuing(true);
     setError("");
     try {
-      const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/continue`, {
-        method: "POST",
-      });
-      const payload = await response.json();
+      const { response, payload } = await continueJob(jobId);
 
       if (!response.ok) {
         setError(payload.detail || "Failed to continue job.");
@@ -477,10 +323,7 @@ function App() {
     setIsRestarting(true);
     setError("");
     try {
-      const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/restart`, {
-        method: "POST",
-      });
-      const payload = await response.json();
+      const { response, payload } = await restartJob(jobId);
 
       if (!response.ok) {
         setError(payload.detail || "Failed to restart job.");
@@ -497,134 +340,12 @@ function App() {
     }
   }
 
-  function syncAudioWithVideo(currentTime) {
-    const seekingBackward = currentTime < lastVideoTimeRef.current;
-
-    if (seekingBackward) {
-      const resetKeys = new Set();
-      segments.forEach((segment) => {
-        const key = segment.audio_file_name || expectedAudioFilename(segment.start_time);
-        if (parseTime(segment.start_time) > currentTime) {
-          playedSegmentsRef.current.delete(key);
-          resetKeys.add(key);
-        }
-      });
-
-      resetKeys.forEach((key) => {
-        const active = activeAudioRef.current.get(key);
-        if (active) {
-          active.pause();
-          active.currentTime = 0;
-          activeAudioRef.current.delete(key);
-        }
-      });
-    }
-
-    // Find the single segment that should be playing now
-    let segmentToPlay = null;
-    for (const segment of segments) {
-      const start = parseTime(segment.start_time);
-      const end = parseTime(segment.end_time || start + 2);
-      
-      if (currentTime >= start && currentTime <= end) {
-        segmentToPlay = segment;
-        break;
-      }
-    }
-
-    const segmentKey = segmentToPlay 
-      ? (segmentToPlay.audio_file_name || expectedAudioFilename(segmentToPlay.start_time))
-      : null;
-
-    // Stop any audio that's not the current segment
-    const keysToRemove = [];
-    activeAudioRef.current.forEach((audio, key) => {
-      if (key !== segmentKey) {
-        audio.pause();
-        audio.currentTime = 0;
-        keysToRemove.push(key);
-      }
-    });
-    keysToRemove.forEach((key) => {
-      activeAudioRef.current.delete(key);
-    });
-
-    // Play the current segment if it exists and hasn't been started
-    if (segmentToPlay && !playedSegmentsRef.current.has(segmentKey)) {
-      playedSegmentsRef.current.add(segmentKey);
-      playSegment(segmentToPlay);
-    }
-
-    lastVideoTimeRef.current = currentTime;
-    setCurrentVideoTime(currentTime);
-  }
-
-  function handleVideoPlay() {
-    const video = videoRef.current;
-    if (!video) {
-      return;
-    }
-    video.muted = true;
-    setIsVideoPlaying(true);
-    syncAudioWithVideo(video.currentTime || 0);
-  }
-
-  function handleVideoPause() {
-    setIsVideoPlaying(false);
-    stopAllAudio();
-  }
-
-  function handleVideoSeek() {
-    const video = videoRef.current;
-    if (!video) {
-      return;
-    }
-
-    reconcilePlaybackForSeek(video.currentTime || 0);
-  }
-
-  function handleVideoLoadedMetadata(event) {
-    setVideoDuration(event.currentTarget.duration || 0);
-  }
-
-  function handleSeekSliderChange(event) {
-    const next = Number.parseFloat(event.target.value || "0");
-    seekVideoToTime(next);
-  }
-
   function handleVolumeSliderChange(event) {
     const next = Number.parseFloat(event.target.value || "0");
     const clamped = Math.max(0, Math.min(next, 1));
     setAudioVolume(clamped);
   }
 
-  async function handlePlayPauseClick() {
-    const video = videoRef.current;
-    if (!video) {
-      return;
-    }
-
-    if (video.paused) {
-      try {
-        await video.play();
-      } catch (playError) {
-        setError(playError.message || "Unable to start playback.");
-      }
-      return;
-    }
-
-    video.pause();
-  }
-
-  function activeSegmentId() {
-    return segments.findIndex((segment) => {
-      const start = parseTime(segment.start_time);
-      const end = parseTime(segment.end_time || start + 2);
-      return currentVideoTime >= start && currentVideoTime <= end;
-    });
-  }
-
-  const activeIndex = activeSegmentId();
   const canContinueJob =
     Boolean(jobId) &&
     ["queued", "processing", "failed"].includes(status) &&
@@ -636,55 +357,16 @@ function App() {
     status === "queued" ||
     status === "processing" ||
     status === "completed";
-  const activeCaptionText =
-    ccEnabled && activeIndex >= 0 && segments[activeIndex]?.transcript_rw
-      ? segments[activeIndex].transcript_rw
-      : "";
   const currentStageIndex = JOB_STAGES.indexOf(currentStage);
   const normalizedStageIndex = Math.max(currentStageIndex, 0);
   const stageProgressPercent =
     status === "completed"
       ? 100
       : Math.round((normalizedStageIndex / (JOB_STAGES.length - 1)) * 100);
-
-  function stageState(stage, index) {
-    if (status === "failed" && stage === lastFailedStage) {
-      return "failed";
-    }
-    if (status === "completed") {
-      return "done";
-    }
-    if (index < currentStageIndex) {
-      return "done";
-    }
-    if (index === currentStageIndex) {
-      return "active";
-    }
-    return "pending";
-  }
-
-  const timelineItems = JOB_STAGES.map((stage, index) => {
-    const state = stageState(stage, index);
-    let color = "#d9d9d9";
-    let dot = <ClockCircleOutlined />;
-
-    if (state === "done") {
-      color = "#52c41a";
-      dot = <CheckCircleTwoTone twoToneColor="#52c41a" />;
-    } else if (state === "active") {
-      color = "#1677ff";
-      dot = <ClockCircleOutlined style={{ color: "#1677ff" }} />;
-    } else if (state === "failed") {
-      color = "#ff4d4f";
-      dot = <ClockCircleOutlined style={{ color: "#ff4d4f" }} />;
-    }
-
-    return {
-      color,
-      dot,
-      children: <span className="timeline-label">{formatStageLabel(stage)}</span>,
-    };
-  });
+  const displayedDurationSeconds = useMemo(
+    () => computeDurationFromTimestamps(jobStartedAt, jobCompletedAt, durationNowMs),
+    [jobStartedAt, jobCompletedAt, durationNowMs]
+  );
 
   const uploadProps = {
     accept: "video/mp4,video/quicktime,video/webm,video/x-m4v",
@@ -714,211 +396,73 @@ function App() {
       }}
     >
       <Layout className="app-shell">
-      <Header className="app-header">
-        <div>
-          <Text type="secondary">Creator Console</Text>
-          <Title level={3} className="app-title">DeepKIN Studio</Title>
-        </div>
-        <div className="header-meta">
-          <Tag color={STATUS_COLOR[status] || "default"}>{status}</Tag>
-          <Tag icon={<ClockCircleOutlined />}>Poll {Math.round(POLL_INTERVAL_MS / 1000)}s</Tag>
-        </div>
-      </Header>
+      <AppHeader
+        status={status}
+        pollIntervalSeconds={Math.round(POLL_INTERVAL_MS / 1000)}
+        statusColor={STATUS_COLOR[status] || "default"}
+      />
       <Layout>
-        <Sider width={220} className="app-sider" breakpoint="lg" collapsedWidth="0">
-          <List
-            size="small"
-            dataSource={[
-              { icon: <VideoCameraOutlined />, label: "Video Dubbing" },
-              { icon: <DashboardOutlined />, label: "Job Queue" },
-              { icon: <FileTextOutlined />, label: "Transcripts" },
-              { icon: <TranslationOutlined />, label: "Audio Segments" },
-            ]}
-            renderItem={(item, idx) => (
-              <List.Item className={idx === 0 ? "sider-item active" : "sider-item"}>
-                <span className="sider-icon">{item.icon}</span>
-                <span>{item.label}</span>
-              </List.Item>
-            )}
-          />
-        </Sider>
+        <SidebarNav />
         <Content className="app-content">
-          <Card className="hero-card" variant="borderless">
-            <Row gutter={[16, 16]} align="middle">
-              <Col xs={24} md={10}>
-                <Title level={4} style={{ marginTop: 0 }}>Production Dashboard</Title>
-                <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-                  Upload, monitor stage execution, and review generated translated audio in one place.
-                </Paragraph>
-              </Col>
-              <Col xs={24} md={14}>
-                <Row gutter={[12, 12]}>
-                  <Col xs={24} sm={8}>
-                    <Statistic title="Job Key" value={jobId || "none"} />
-                  </Col>
-                  <Col xs={24} sm={8}>
-                    <Statistic title="Active Stage" value={formatStageLabel(currentStage || "idle")} />
-                  </Col>
-                  <Col xs={24} sm={8}>
-                    <Statistic title="Segments" value={segments.length} />
-                  </Col>
-                </Row>
-              </Col>
-            </Row>
-          </Card>
+          <HeroCard jobId={jobId} currentStage={currentStage} segmentCount={segments.length} />
 
           <Row gutter={[16, 16]}>
             <Col xs={24} lg={10}>
-              <Card title="Create Job" className="panel-card" extra={<UploadOutlined />}>
-                <form onSubmit={handleSubmit}>
-                  <Upload {...uploadProps}>
-                    <Button icon={<UploadOutlined />}>Select Video</Button>
-                  </Upload>
-                  <div className="submit-row">
-                    <Button
-                      type="primary"
-                      htmlType="submit"
-                      loading={isSubmitting || isCheckingExistingJob}
-                      disabled={shouldDisableStartProcessing}
-                      icon={<PlayCircleOutlined />}
-                    >
-                      Start Processing
-                    </Button>
-                  </div>
-                </form>
-                {error ? <Alert type="error" showIcon message={error} style={{ marginTop: 12 }} /> : null}
-              </Card>
+              <JobCreateCard
+                uploadProps={uploadProps}
+                onSubmit={handleSubmit}
+                isSubmitting={isSubmitting}
+                isCheckingExistingJob={isCheckingExistingJob}
+                shouldDisableStartProcessing={shouldDisableStartProcessing}
+                error={error}
+              />
             </Col>
             <Col xs={24} lg={14}>
-              <Card title="Stage Progress" className="panel-card">
-                <Progress percent={stageProgressPercent} status={status === "failed" ? "exception" : undefined} />
-                <Timeline orientation="horizontal" items={timelineItems} className="timeline-tight" />
-                {lastFailedStage ? (
-                  <Alert
-                    type="warning"
-                    showIcon
-                    message={`Last failed stage: ${formatStageLabel(lastFailedStage)}`}
-                    style={{ marginTop: 8 }}
-                  />
-                ) : null}
-                <div className="actions-row">
-                  <Button
-                    type="primary"
-                    icon={<ReloadOutlined />}
-                    loading={isContinuing}
-                    onClick={handleContinueJob}
-                    disabled={!canContinueJob || isRestarting}
-                  >
-                    Continue Job
-                  </Button>
-                  <Button
-                    icon={<ReloadOutlined />}
-                    loading={isRestarting}
-                    onClick={handleRestartJob}
-                    disabled={!jobId || status !== "failed" || isContinuing}
-                  >
-                    Restart Failed Job
-                  </Button>
-                </div>
-              </Card>
+              <StageProgressCard
+                status={status}
+                currentStage={currentStage}
+                lastFailedStage={lastFailedStage}
+                stageProgressPercent={stageProgressPercent}
+                jobStartedAt={jobStartedAt}
+                jobCompletedAt={jobCompletedAt}
+                displayedDurationSeconds={displayedDurationSeconds}
+                isContinuing={isContinuing}
+                isRestarting={isRestarting}
+                canContinueJob={canContinueJob}
+                jobId={jobId}
+                onContinueJob={handleContinueJob}
+                onRestartJob={handleRestartJob}
+              />
             </Col>
           </Row>
 
           <Row gutter={[16, 16]}>
             <Col xs={24} xl={12}>
-              <Card title="Video Preview" className="panel-card" extra={<VideoCameraOutlined />}>
-                {videoUrl ? (
-                  <div className="video-stage">
-                    <video
-                      ref={videoRef}
-                      src={videoUrl}
-                      playsInline
-                      onPlay={handleVideoPlay}
-                      onPause={handleVideoPause}
-                      onEnded={resetPlaybackState}
-                      onSeeked={handleVideoSeek}
-                      onLoadedMetadata={handleVideoLoadedMetadata}
-                      onTimeUpdate={(event) => syncAudioWithVideo(event.currentTarget.currentTime || 0)}
-                      className="preview-video"
-                    >
-                      <track kind="captions" label="No captions" />
-                    </video>
-                    {activeCaptionText ? <div className="caption-overlay">{activeCaptionText}</div> : null}
-                    <div className="custom-controls">
-                      <Button
-                        icon={isVideoPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
-                        onClick={handlePlayPauseClick}
-                      >
-                        {isVideoPlaying ? "Pause" : "Play"}
-                      </Button>
-                      <div className="seek-control">
-                        <input
-                          type="range"
-                          min={0}
-                          max={Math.max(videoDuration, 0)}
-                          step={0.01}
-                          value={Math.min(currentVideoTime, videoDuration || currentVideoTime)}
-                          onChange={handleSeekSliderChange}
-                        />
-                        <span className="time-readout">
-                          {formatClock(currentVideoTime)} / {formatClock(videoDuration)}
-                        </span>
-                      </div>
-                      <div className="volume-control">
-                        <SoundOutlined />
-                        <input
-                          type="range"
-                          min={0}
-                          max={1}
-                          step={0.01}
-                          value={audioVolume}
-                          onChange={handleVolumeSliderChange}
-                          disabled={segments.length === 0}
-                        />
-                      </div>
-                      <Button onClick={() => setCcEnabled((prev) => !prev)} type={ccEnabled ? "primary" : "default"}>
-                        CC
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Alert type="info" showIcon message="Select a video to preview and process." />
-                )}
-              </Card>
+              <VideoPreviewCard
+                videoUrl={videoUrl}
+                videoRef={videoRef}
+                activeCaptionText={activeCaptionText}
+                isVideoPlaying={isVideoPlaying}
+                currentVideoTime={currentVideoTime}
+                videoDuration={videoDuration}
+                audioVolume={audioVolume}
+                segmentsCount={segments.length}
+                ccEnabled={ccEnabled}
+                  playbackDebug={playbackDebug}
+                onToggleCc={() => setCcEnabled((prev) => !prev)}
+                onVideoPlay={handleVideoPlay}
+                onVideoPause={handleVideoPause}
+                onVideoEnded={resetPlaybackState}
+                onVideoSeek={handleVideoSeek}
+                onVideoLoadedMetadata={handleVideoLoadedMetadata}
+                onVideoTimeUpdate={handleVideoTimeUpdate}
+                onPlayPauseClick={handlePlayPauseClick}
+                onSeekSliderChange={handleSeekSliderChange}
+                onVolumeSliderChange={handleVolumeSliderChange}
+              />
             </Col>
             <Col xs={24} xl={12}>
-              <Card title="Translated Segments" className="panel-card" extra={<FileTextOutlined />}>
-                {segments.length === 0 ? (
-                  <Alert
-                    type="info"
-                    showIcon
-                    message="No translated segments yet. Submit a job and wait for completion."
-                  />
-                ) : (
-                  <List
-                    className="segments-list"
-                    dataSource={segments}
-                    renderItem={(segment, index) => {
-                      const isActive = index === activeIndex;
-                      return (
-                        <List.Item
-                          className={isActive ? "segment-item active clickable" : "segment-item clickable"}
-                          onClick={() => handleSegmentClick(parseTime(segment.start_time))}
-                        >
-                          <div className="segment-head">
-                            <Text strong className="segment-time-chip">{segment.start_time}s</Text>
-                            <Badge
-                              status={isActive ? "processing" : "default"}
-                              text={segment.audio_file_url ? "Audio ready" : "Pending audio"}
-                            />
-                          </div>
-                          <Paragraph style={{ marginBottom: 0 }}>{segment.transcript_rw}</Paragraph>
-                        </List.Item>
-                      );
-                    }}
-                  />
-                )}
-              </Card>
+              <SegmentsCard segments={segments} activeIndex={activeIndex} onSegmentClick={handleSegmentClick} />
             </Col>
           </Row>
         </Content>
