@@ -1,0 +1,5 @@
+name,rows,missing_rw,missing_en,empty_rw,empty_en,duplicates
+Digital Umuganda,47824,8,12,10,12,2376
+Mbaza Train,58251,0,0,0,0,0
+Mbaza Val,2456,0,0,0,0,0
+Mbaza Test,1060,0,0,0,0,0
